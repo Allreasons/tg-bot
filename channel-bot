@@ -1,0 +1,44 @@
+<?php
+
+$token = 'YOUR_BOT_TOKEN';
+$channelUsername = '@your_channel_username';
+
+$data = json_decode(file_get_contents('php://input'), true);
+$message = $data['message'];
+$chatId = $message['chat']['id'];
+$text = $message['text'];
+
+if (strpos($text, '/start') === 0) {
+    sendMessage($chatId, 'Привет! Этот бот ищет сообщения по ключевым словам в вашем канале.');
+} elseif (strpos($text, '/search') === 0) {
+    $keywords = explode(' ', $text, 2);
+    $searchTerm = isset($keywords[1]) ? $keywords[1] : '';
+
+    $messages = getChatHistory($channelUsername, $searchTerm);
+
+    if ($messages) {
+        $links = array_map(
+            function ($message) use ($channelUsername) {
+                return "https://t.me/{$channelUsername}/{$message['message_id']}";
+            },
+            $messages
+        );
+
+        sendMessage($chatId, 'Ссылки на сообщения с ключевыми словами:' . PHP_EOL . implode(PHP_EOL, $links));
+    } else {
+        sendMessage($chatId, 'Сообщений с ключевыми словами не найдено.');
+    }
+}
+
+function sendMessage($chatId, $text)
+{
+    $url = "https://api.telegram.org/bot$token/sendMessage?chat_id=$chatId&text=" . urlencode($text);
+    file_get_contents($url);
+}
+
+function getChatHistory($channelUsername, $searchTerm)
+{
+    $url = "https://api.telegram.org/bot$token/getChatHistory?chat_id=$channelUsername&text=$searchTerm";
+    $result = file_get_contents($url);
+    return json_decode($result, true)['result'];
+}
